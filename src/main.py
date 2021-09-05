@@ -8,18 +8,26 @@ import json
 import logging
 import websockets
 import events
+import uuid
+import datetime
 
 logging.basicConfig()
 
-MESSAGE_LOG_STATE = {
-    "message_ids": []
-}
-
-STATE = {"value": 0}
-
 CONNECTED_USERS = dict()
-CHANNELS = ["default"]
 
+# Default channel created at server startup
+CHANNELS = dict()
+
+def rest_create_channel(channel_name: str):
+    channel = {
+        "id": str(uuid.uuid4()),
+        "name": channel_name,
+        "updatedAt": str(datetime.datetime.now())
+    }
+
+    CHANNELS[channel["id"]] = channel
+
+    return channel
 
 async def dispatch_to_users(dispatch_event):
     if CONNECTED_USERS:  # asyncio.wait doesn't accept an empty list
@@ -56,13 +64,14 @@ async def handle_connection(websocket, path):
 
                 await register_connection(user_id, websocket)
                 await websocket.send(events.ready_dispatch(len(CONNECTED_USERS), CHANNELS))
-            elif event_type == "SEND_MESSAGE":
+            elif event_type == "REST_CREATE_MESSAGE":
                 message_content = event["data"]["content"]
                 await dispatch_to_users(events.message_create_dispatch(message_content))
-            elif event_type == "CHANNEL_CREATE":
-                channel = event["data"]["channel"]
-                CHANNELS.append(channel["name"])
-                await dispatch_to_users(events.channel_create_dispatch(channel["name"]))
+            elif event_type == "REST_CREATE_CHANNEL":
+                channel_name = event["data"]["name"]
+                channel = rest_create_channel(channel_name)
+
+                await dispatch_to_users(events.channel_create_dispatch(channel))
             else:
                 logging.error("unsupported event: %s", event)
     except Exception as e:
@@ -73,6 +82,9 @@ async def handle_connection(websocket, path):
 
 
 def start_websocket():
+    # Initial data setup
+    rest_create_channel("default")
+
     start_server = websockets.serve(handle_connection, port=8085)
 
     asyncio.get_event_loop().run_until_complete(start_server)

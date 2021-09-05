@@ -9,7 +9,7 @@ def identify_dispatch():
     })
 
 
-def ready_dispatch(num_of_users: int, channels: set):
+def ready_dispatch(num_of_users: int, channels: dict):
     return json.dumps({
         "type": "READY",
         "data": {
@@ -55,15 +55,11 @@ def message_delete_dispatch(message_id):
     })
 
 
-def channel_create_dispatch(channel_name):
+def channel_create_dispatch(channel):
     return json.dumps({
         "type": "CHANNEL_CREATE",
         "data": {
-            "channel": {
-                "id": str(uuid.uuid4()),
-                "name": channel_name,
-                "updatedAt": str(datetime.datetime.now())
-            }
+            "channel": channel
         }
     })
 
