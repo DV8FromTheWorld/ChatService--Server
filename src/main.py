@@ -22,7 +22,7 @@ def rest_create_channel(channel_name: str):
     channel = {
         "id": str(uuid.uuid4()),
         "name": channel_name,
-        "updatedAt": str(datetime.datetime.now())
+        "createdAt": str(datetime.datetime.now())
     }
 
     CHANNELS[channel["id"]] = channel
@@ -31,20 +31,20 @@ def rest_create_channel(channel_name: str):
 
 async def dispatch_to_users(dispatch_event):
     if CONNECTED_USERS:  # asyncio.wait doesn't accept an empty list
-        await asyncio.wait([user.send(dispatch_event) for user in CONNECTED_USERS.values()])
+        await asyncio.wait([user["connection"].send(dispatch_event) for user in CONNECTED_USERS.values()])
 
 
-async def register_connection(user_id, websocket):
-    CONNECTED_USERS[user_id] = websocket
-    await dispatch_to_users(events.user_connected_dispatch())
+async def register_connection(user, websocket):
+    CONNECTED_USERS[user["id"]] = {
+        "user": user,
+        "connection": websocket
+    }
+    await dispatch_to_users(events.user_connected_dispatch(user))
 
 
-async def unregister_connection(user_id):
-    if user_id is None:
-        return
-
-    del CONNECTED_USERS[user_id]
-    await dispatch_to_users(events.user_disconnected_dispatch())
+async def unregister_connection(user):
+    del CONNECTED_USERS[user["id"]]
+    await dispatch_to_users(events.user_disconnected_dispatch(user["id"]))
 
 
 async def handle_connection(websocket, path):
@@ -53,20 +53,29 @@ async def handle_connection(websocket, path):
 
     await websocket.send(events.identify_dispatch())
 
-    user_id = None
+    user = None
     try:
         async for message in websocket:
             print("Event: " + message)
             event = json.loads(message)
             event_type = event["type"]
             if event_type == "IDENTIFY_RESPONSE":
-                user_id = event["data"]["userId"]
+                user = {
+                    "id": event["data"]["id"],
+                    "name": event["data"]["name"]
+                }
 
-                await register_connection(user_id, websocket)
-                await websocket.send(events.ready_dispatch(len(CONNECTED_USERS), CHANNELS))
+                await register_connection(user, websocket)
+
+                # Convert our Dict<userId, { connection: WS, user: UserDetails }> to Dict<userId, UserDetails>
+                users = {user_id: user_connection_details["user"] for user_id, user_connection_details in CONNECTED_USERS.items()}
+
+                await websocket.send(events.ready_dispatch(users, CHANNELS))
             elif event_type == "REST_CREATE_MESSAGE":
                 message_content = event["data"]["content"]
-                await dispatch_to_users(events.message_create_dispatch(message_content))
+                message_channel_id = event["data"]["channelId"]
+
+                await dispatch_to_users(events.message_create_dispatch(user, message_channel_id, message_content))
             elif event_type == "REST_CREATE_CHANNEL":
                 channel_name = event["data"]["name"]
                 channel = rest_create_channel(channel_name)
@@ -78,7 +87,8 @@ async def handle_connection(websocket, path):
         print(e.with_traceback())
 
     finally:
-        await unregister_connection(user_id)
+        if user is not None:
+            await unregister_connection(user)
 
 
 def start_websocket():
