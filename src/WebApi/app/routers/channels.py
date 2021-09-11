@@ -4,27 +4,27 @@ from ..models import Channel
 
 router = APIRouter(
     prefix='/api/v1/channels',
-    tags=["channels"]
+    tags=["Channels"]
 )
 
+@router.get("/{channel_id}", response_model=Channel)
+async def get_channel(channel_id: str):
+    model = Channel()
+    model.channel_id = channel_id
+    return model
 
-@router.get("/")
-async def get_channels():
+@router.put("/{channel_id}", response_model=Channel)
+async def update_channel(channel_id: str):
+    model = Channel()
+    model.channel_id = channel_id
+    return model
+
+@router.delete("/{channel_id}")
+async def delete_channel(channel_id: str):
     return {"msg": "Hi from channels controller"}
 
 
-@router.get("/{channelId}", response_model=Channel)
-async def get_channel(channelId):
-    model = Channel()
-    model.channel_id = channelId
-    return model
+@router.post("/{channel_id}/typing")
+async def send_typing(channel_id: str):
+    return {"msg": "Hi from channels controller"}
 
-
-@router.get("/{channelId}/messages")
-async def get_channel_messages(channelId, limit: int = 100, offset: int = 0):
-    return {"channelId": channelId, "messages": ["msg1", "msg2"], "limit": limit, "offset": offset}
-
-
-@router.post("/{channelId}/messages")
-async def post_message(channelId):
-    return JSONResponse(status_code=status.HTTP_200_OK)
