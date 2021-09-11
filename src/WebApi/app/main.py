@@ -1,12 +1,12 @@
 import uvicorn
 from fastapi import FastAPI
+from routers import channels, guilds
 
 app = FastAPI()
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+app.include_router(channels.router)
+app.include_router(guilds.router)
 
 
 if __name__ == "__main__":
