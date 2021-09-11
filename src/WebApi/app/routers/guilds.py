@@ -9,3 +9,8 @@ router = APIRouter(
 @router.get("/")
 async def get_guilds():
     return {"msg": "Hi from guilds controller"}
+
+
+@router.get("/{guildId}")
+async def get_guilds(guildId):
+    return {"guildId": guildId}
