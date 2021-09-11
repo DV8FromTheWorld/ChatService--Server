@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Body, status
 from fastapi.responses import JSONResponse
+from ..models import Channel
 
 router = APIRouter(
     prefix='/api/v1/channels',
@@ -12,9 +13,11 @@ async def get_channels():
     return {"msg": "Hi from channels controller"}
 
 
-@router.get("/{channelId}")
+@router.get("/{channelId}", response_model=Channel)
 async def get_channel(channelId):
-    return {"channelId": channelId}
+    model = Channel()
+    model.channel_id = channelId
+    return model
 
 
 @router.get("/{channelId}/messages")
